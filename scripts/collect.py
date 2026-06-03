@@ -9,7 +9,12 @@ crypto-eval Stage 1: 信息采集
   - DeFiLlama: TVL/协议类别（如果是 DeFi 协议）
   - 链上: 基础 holder 信息（Etherscan 公开 API）
 """
-import json, sys, os, time, urllib.request, urllib.parse
+import json
+import os
+import sys
+import time
+import urllib.parse
+import urllib.request
 
 CACHE_DIR = os.environ.get("CACHE_DIR", os.path.expanduser("~/openclaw-workspace/memory/.cache/crypto-eval"))
 CACHE_TTL = int(os.environ.get("CACHE_TTL", "86400"))
@@ -69,7 +74,7 @@ def resolve_input(raw_input):
     解析输入: symbol / contract_address / name → CoinGecko coin_id
     """
     raw = raw_input.strip()
-    
+
     # 以 0x 开头 = 合约地址
     if raw.startswith("0x"):
         url = f"https://api.coingecko.com/api/v3/coins/ethereum/contract/{raw}"
@@ -83,7 +88,7 @@ def resolve_input(raw_input):
             if "id" in data:
                 return data["id"]
         return None
-    
+
     # 否则当 symbol 或 name 搜索
     coin_id = search_coingecko(raw)
     return coin_id
@@ -93,7 +98,7 @@ def collect(coin_id):
     detail = get_coin_detail(coin_id)
     if "error" in detail and "id" not in detail:
         return {"error": f"Cannot fetch detail for {coin_id}", "raw": detail}
-    
+
     result = {
         "coin_id": coin_id,
         "symbol": detail.get("symbol", "").upper(),
@@ -106,7 +111,7 @@ def collect(coin_id):
         "exchanges": [],
         "platforms": list((detail.get("platforms") or {}).keys()),
     }
-    
+
     md = detail.get("market_data", {})
     if md:
         result["market_data"] = {
@@ -121,7 +126,7 @@ def collect(coin_id):
             "price_change_30d_pct": md.get("price_change_percentage_30d"),
             "price_change_7d_pct": md.get("price_change_percentage_7d"),
         }
-    
+
     # 交易所列表 — 从 /coins/{id}/tickers 独立端点获取
     ticker_url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/tickers?exchange_ids=binance,okx,coinbase,bybit,bitget,kraken,gate,kucoin,huobi,bitstamp&depth=false"
     ticker_data = cached_fetch(ticker_url, f"cg_tickers_{coin_id}")
@@ -136,7 +141,7 @@ def collect(coin_id):
         if ex:
             exchanges.add(ex)
     result["exchanges"] = sorted(exchanges)
-    
+
     # 链接
     links = detail.get("links", {})
     result["links"] = {
@@ -145,7 +150,7 @@ def collect(coin_id):
         "github": (links.get("repos_url", {}).get("github") or [None])[0],
         "telegram": links.get("telegram_channel_identifier"),
     }
-    
+
     return result
 
 if __name__ == "__main__":
@@ -154,24 +159,24 @@ if __name__ == "__main__":
         print("  Collects data and prints JSON to stdout")
         print("  --json-output PATH: also save to file")
         sys.exit(1)
-    
+
     raw_input = sys.argv[1]
     output_path = None
     if "--json-output" in sys.argv:
         idx = sys.argv.index("--json-output")
         output_path = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else None
-    
+
     coin_id = resolve_input(raw_input)
     if not coin_id:
         print(json.dumps({"error": f"Cannot resolve: {raw_input}", "input": raw_input}, indent=2, ensure_ascii=False))
         sys.exit(1)
-    
+
     data = collect(coin_id)
     out = json.dumps(data, indent=2, ensure_ascii=False)
-    
+
     if output_path:
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
         with open(output_path, "w") as f:
             f.write(out)
-    
+
     print(out)
