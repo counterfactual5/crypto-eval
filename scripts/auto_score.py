@@ -99,36 +99,6 @@ def auto_score_asset(symbol, data, rules):
     return None, None  # needs LLM
 
 
-def auto_score_apy(symbol, apy, period_type, rules):
-    if apy is None or apy <= 0:
-        return 50, "不适用（非理财产品）"
-    symbol_upper = symbol.upper()
-    for rule in rules:
-        cond = rule["condition"]
-        if "symbol ends with ON" in cond and "not" not in cond:
-            if symbol_upper.endswith("ON") and apy > 15:
-                return rule["score"], rule["note"]
-        elif "symbol not ends with ON" in cond:
-            if apy > 30 and not symbol_upper.endswith("ON"):
-                return rule["score"], rule["note"]
-        elif "periodType=fixed" in cond:
-            if period_type == "fixed" and 15 < apy <= 30:
-                return rule["score"], rule["note"]
-        elif "apy > 0 and apy <=" in cond:
-            parts = cond.replace("apy > ", "").replace(" and apy <=", "|").split("|")
-            lo, hi = float(parts[0]), float(parts[1].split()[0])
-            if lo < apy <= hi:
-                return rule["score"], rule["note"]
-        elif "apy >" in cond and "apy <=" in cond:
-            parts = cond.replace("apy > ", "").replace(" and apy <=", "|").split("|")
-            lo, hi = float(parts[0]), float(parts[1].split()[0])
-            if lo < apy <= hi:
-                return rule["score"], rule["note"]
-        elif cond.strip().startswith("apy <="):
-            continue  # already handled
-    return None, None
-
-
 def auto_score(input_symbol, data_path=None):
     symbol = input_symbol.upper()
 
@@ -174,20 +144,6 @@ def auto_score(input_symbol, data_path=None):
     result["auto_scores"]["asset_backing"] = {"score": score, "note": note, "auto": score is not None}
     if score is None:
         result["needs_llm"].append({"dimension": "asset_backing", "reason": scoring["asset_backing"]["llm_task"]})
-
-    # apy_source (需要外部传入 apy 和 period_type，或留空给 LLM)
-    apy = data.get("_apy")  # 可选外部传入
-    period = data.get("_period_type", "flexible")
-    score, note = auto_score_apy(symbol, apy, period, scoring["apy_source"]["auto_rules"])
-    result["auto_scores"]["apy_source"] = {"score": score, "note": note, "auto": score is not None}
-    if score is None:
-        result["needs_llm"].append(
-            {
-                "dimension": "apy_source",
-                "reason": scoring["apy_source"]["llm_task"],
-                "hint": f"apy={apy}, period={period}",
-            }
-        )
 
     # background (始终需要 LLM)
     result["auto_scores"]["background"] = {"score": None, "note": None, "auto": False}

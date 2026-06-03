@@ -84,27 +84,6 @@ def test_asset_unknown():
     assert score is None  # needs LLM
 
 
-# ===== apy_source =====
-def test_apy_low():
-    score, note = auto_score_mod.auto_score_apy("ETH", 4.5, "flexible", SCORING["apy_source"]["auto_rules"])
-    assert score == 80
-
-
-def test_apy_high_non_on():
-    score, note = auto_score_mod.auto_score_apy("HOME", 100.0, "flexible", SCORING["apy_source"]["auto_rules"])
-    assert score == 25
-
-
-def test_apy_on_high():
-    score, note = auto_score_mod.auto_score_apy("AAPLON", 20.0, "flexible", SCORING["apy_source"]["auto_rules"])
-    assert score == 85
-
-
-def test_apy_none():
-    score, note = auto_score_mod.auto_score_apy("BTC", None, "flexible", SCORING["apy_source"]["auto_rules"])
-    assert score == 50
-
-
 # ===== 确定性测试 =====
 def test_merge_deterministic():
     """同输入永远出同结果"""
@@ -118,10 +97,9 @@ def test_merge_deterministic():
             "onchain_data": {"score": 80, "note": "test", "auto": True},
             "exchange_coverage": {"score": 75, "note": "test", "auto": True},
             "asset_backing": {"score": 95, "note": "test", "auto": True},
-            "apy_source": {"score": 50, "note": "test", "auto": True},
             "background": {"score": 80, "note": "test", "auto": True},
         },
-        "auto_partial_score": 76.0,
+        "auto_partial_score": 82.5,
         "auto_partial_weight": 1.0,
         "remaining_llm_weight": 0.0,
         "needs_llm": [],
@@ -136,7 +114,7 @@ def test_merge_deterministic():
     r1 = merge_mod.merge("TEST", auto_path=auto_path, output_path=out_path)
     r2 = merge_mod.merge("TEST", auto_path=auto_path, output_path=out_path)
     assert r1["score"] == r2["score"]
-    assert abs(r1["score"] - 77.5) < 0.1
-    assert r1["grade"] == "B"
+    assert abs(r1["score"] - 82.5) < 0.1
+    assert r1["grade"] == "A"
     os.unlink(auto_path)
     os.unlink(out_path)

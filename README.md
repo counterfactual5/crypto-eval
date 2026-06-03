@@ -4,9 +4,9 @@
 
 ## Why?
 
-Different LLMs give different evaluation scores for the same asset. **crypto-eval minimizes LLM dependency** by using deterministic rule-based scoring for 3 out of 5 dimensions, leaving only 2 dimensions to LLM judgment.
+Different LLMs give different evaluation scores for the same asset. **crypto-eval minimizes LLM dependency** by using deterministic rule-based scoring for 3 out of 4 dimensions, leaving only 1 dimension to LLM judgment.
 
-**Worst case: LLM influences only 45% of the final score. Best case: 0%.**
+**Worst case: LLM influences only 25% of the final score. Best case: 0%.**
 
 ## Architecture
 
@@ -24,14 +24,13 @@ Step 4: merge_score.py  → Auto + LLM → final grade
 Output: SYMBOL.json (grade, score, dimensions)
 ```
 
-## 5 Dimensions
+## 4 Dimensions
 
 | Dimension | Weight | Auto? | Method |
 |:---|:--:|:--:|:---|
-| On-chain Data | 20% | ✅ | Market cap rank → score table |
-| Exchange Coverage | 20% | ✅ | Exchange list matching |
-| Asset Backing | 20% | Partial | Stablecoins/ON/BTC auto; rest → LLM |
-| APY Source | 15% | Partial | APY threshold rules; edge cases → LLM |
+| On-chain Data | 25% | ✅ | Market cap rank → score table |
+| Exchange Coverage | 25% | ✅ | Exchange list matching |
+| Asset Backing | 25% | Partial | Stablecoins/ON/BTC auto; rest → LLM |
 | Background | 25% | ❌ | Team/investors/audit → LLM only |
 
 ## Quick Start
@@ -105,13 +104,6 @@ python3 -m pytest tests/ -v
 | BTC/WBTC | 98 |
 | ETH | 95 |
 
-### APY Source (Auto)
-| Condition | Score |
-|:--|:--:|
-| APY ≤ 5% | 80 |
-| 5% < APY ≤ 15% | 70 |
-| APY > 30% (non-ON) | 25 |
-| ON token APY > 15% | 85 |
 
 ## Project Structure
 
@@ -127,7 +119,7 @@ crypto-eval/
 ├── references/
 │   └── eval-dimensions.json    # Scoring rules & weights
 └── tests/
-    └── test_auto_score.py      # 16 tests (all deterministic)
+    └── test_auto_score.py      # 12 tests (all deterministic)
 ```
 
 ## Integration
