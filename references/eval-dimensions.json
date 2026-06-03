@@ -4,13 +4,13 @@
     {
       "id": "onchain_data",
       "name": "链上数据",
-      "weight": 0.2,
+      "weight": 0.15,
       "desc": "市值排名、交易量、持币分散度"
     },
     {
       "id": "exchange_coverage",
       "name": "交易所覆盖",
-      "weight": 0.15,
+      "weight": 0.1,
       "desc": "Binance/OKX/Coinbase 等主流所上线情况"
     },
     {
@@ -36,6 +36,12 @@
       "name": "流动性",
       "weight": 0.1,
       "desc": "24h成交量/市值比，衡量进出难度"
+    },
+    {
+      "id": "dev_activity",
+      "name": "开发者活跃度",
+      "weight": 0.1,
+      "desc": "GitHub stars、最近提交、活跃语言"
     },
     {
       "id": "background",
@@ -132,6 +138,12 @@
       "method": "24h_volume / market_cap ratio",
       "desc": "换手率越高，进出越容易。>20%=90, >5%=70, >1%=50, 其余=30",
       "source_fields": ["total_volume_24h", "market_cap_usd"]
+    },
+    "dev_activity": {
+      "auto": true,
+      "method": "GitHub stars + last commit recency",
+      "desc": "开源活跃度。stars>5k=90, >500=70, >50=50, 其余=30; 最后提交<1月=90, <6月=70, <1年=50, 其余=30",
+      "source_fields": ["github.stars", "github.last_commit_at"]
     },
     "background": {
       "auto": false,

@@ -168,6 +168,51 @@ def auto_score_liquidity(data, rules):
     return 30, f"换手率 {ratio:.0%}，流动性差"
 
 
+def auto_score_dev_activity(data):
+    """Score developer activity from GitHub data."""
+    import datetime
+
+    gh = data.get("github")
+    if not gh or "error" in gh:
+        return None, "GitHub 数据缺失"
+
+    stars = gh.get("stars")
+    last_commit = gh.get("last_commit_at")
+
+    if stars is None and last_commit is None:
+        return None, "GitHub 数据不足"
+
+    # Stars score
+    star_score = 30
+    if stars is not None:
+        if stars > 5000:
+            star_score = 90
+        elif stars > 500:
+            star_score = 70
+        elif stars > 50:
+            star_score = 50
+
+    # Recency score
+    commit_score = 30
+    if last_commit:
+        try:
+            commit_dt = datetime.datetime.fromisoformat(last_commit.replace("Z", "+00:00"))
+            days_ago = (datetime.datetime.now(datetime.timezone.utc) - commit_dt).days
+            if days_ago <= 30:
+                commit_score = 90
+            elif days_ago <= 180:
+                commit_score = 70
+            elif days_ago <= 365:
+                commit_score = 50
+        except (ValueError, TypeError):
+            pass
+
+    # Combine: weighted average with slight bias toward recency
+    score = round(star_score * 0.4 + commit_score * 0.6)
+    note = f"stars={stars or 'N/A'}, 最后提交{last_commit[:10] if last_commit else 'N/A'}"
+    return score, note
+
+
 def auto_score(input_symbol, data_path=None):
     symbol = input_symbol.upper()
 
@@ -231,6 +276,12 @@ def auto_score(input_symbol, data_path=None):
     result["auto_scores"]["liquidity"] = {"score": score, "note": note, "auto": score is not None}
     if score is None:
         result["needs_llm"].append({"dimension": "liquidity", "reason": "流动性数据不足"})
+
+    # dev_activity (全自动)
+    score, note = auto_score_dev_activity(data)
+    result["auto_scores"]["dev_activity"] = {"score": score, "note": note, "auto": score is not None}
+    if score is None:
+        result["needs_llm"].append({"dimension": "dev_activity", "reason": "GitHub 数据缺失"})
 
     # background (始终需要 LLM)
     result["auto_scores"]["background"] = {"score": None, "note": None, "auto": False}

@@ -77,6 +77,38 @@ def get_defillama_protocol(slug):
     return cached_fetch(url, "dllama")
 
 
+def get_github_activity(repo_url: str) -> dict:
+    """Fetch GitHub stars and last commit date from repo URL."""
+    import re
+
+    match = re.search(r"github\.com/([^/]+/[^/]+)", repo_url)
+    if not match:
+        return {"error": "cannot parse repo URL"}
+    repo = match.group(1).rstrip("/")
+
+    # Fetch repo info
+    info_url = f"https://api.github.com/repos/{repo}"
+    info = cached_fetch(info_url, f"gh_info_{repo.replace('/', '_')}")
+    if "error" in info:
+        return info
+
+    result = {
+        "stars": info.get("stargazers_count"),
+        "forks": info.get("forks_count"),
+        "open_issues": info.get("open_issues_count"),
+        "updated_at": info.get("updated_at"),
+        "language": info.get("language"),
+    }
+
+    # Fetch last commit
+    commits_url = f"https://api.github.com/repos/{repo}/commits?per_page=1"
+    commits = cached_fetch(commits_url, f"gh_commits_{repo.replace('/', '_')}")
+    if isinstance(commits, list) and commits:
+        result["last_commit_at"] = commits[0].get("commit", {}).get("committer", {}).get("date")
+
+    return result
+
+
 def resolve_input(raw_input):
     """
     解析输入: symbol / contract_address / name → CoinGecko coin_id
@@ -160,6 +192,21 @@ def collect(coin_id):
         "github": (links.get("repos_url", {}).get("github") or [None])[0],
         "telegram": links.get("telegram_channel_identifier"),
     }
+
+    # DeFiLlama TVL（如果是 DeFi 协议）
+    dllama = get_defillama_protocol(coin_id)
+    if dllama.get("gecko_id") == coin_id and dllama.get("tvl"):
+        tvl_list = dllama["tvl"]
+        if tvl_list:
+            result["defillama_tvl_usd"] = tvl_list[-1].get("totalLiquidityUSD")
+            result["defillama_chains"] = list(dllama.get("currentChainTvls", {}).keys())
+
+    # GitHub 活跃度
+    github_url = result["links"].get("github")
+    if github_url and "github.com/" in github_url:
+        gh = get_github_activity(github_url)
+        if "error" not in gh:
+            result["github"] = gh
 
     return result
 

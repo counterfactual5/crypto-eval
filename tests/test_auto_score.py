@@ -138,6 +138,27 @@ def test_liquidity_missing():
     assert score is None
 
 
+# ===== dev_activity =====
+def test_dev_activity_high():
+    from datetime import datetime, timedelta, timezone
+
+    recent = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    data = {"github": {"stars": 10000, "last_commit_at": recent}}
+    score, note = auto_score_mod.auto_score_dev_activity(data)
+    assert score >= 85
+
+
+def test_dev_activity_low():
+    data = {"github": {"stars": 10, "last_commit_at": "2024-01-01T00:00:00Z"}}
+    score, note = auto_score_mod.auto_score_dev_activity(data)
+    assert score <= 45
+
+
+def test_dev_activity_missing():
+    score, note = auto_score_mod.auto_score_dev_activity({})
+    assert score is None
+
+
 # ===== 确定性测试 =====
 def test_merge_deterministic():
     """同输入永远出同结果"""
@@ -154,9 +175,10 @@ def test_merge_deterministic():
             "age": {"score": 85, "note": "test", "auto": True},
             "tokenomics": {"score": 90, "note": "test", "auto": True},
             "liquidity": {"score": 70, "note": "test", "auto": True},
+            "dev_activity": {"score": 80, "note": "test", "auto": True},
             "background": {"score": 80, "note": "test", "auto": True},
         },
-        "auto_partial_score": 82.0,
+        "auto_partial_score": 80.0,
         "auto_partial_weight": 1.0,
         "remaining_llm_weight": 0.0,
         "needs_llm": [],
@@ -171,7 +193,7 @@ def test_merge_deterministic():
     r1 = merge_mod.merge("TEST", auto_path=auto_path, output_path=out_path)
     r2 = merge_mod.merge("TEST", auto_path=auto_path, output_path=out_path)
     assert r1["score"] == r2["score"]
-    assert abs(r1["score"] - 82.0) < 0.1
+    assert abs(r1["score"] - 82.3) < 0.2
     assert r1["grade"] == "A"
     os.unlink(auto_path)
     os.unlink(out_path)

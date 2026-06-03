@@ -4,7 +4,7 @@
 
 ## Why?
 
-Different LLMs give different evaluation scores for the same asset. **crypto-eval minimizes LLM dependency** by using deterministic rule-based scoring for 6 out of 7 dimensions, leaving only 1 dimension to LLM judgment.
+Different LLMs give different evaluation scores for the same asset. **crypto-eval minimizes LLM dependency** by using deterministic rule-based scoring for 7 out of 8 dimensions, leaving only 1 dimension to LLM judgment.
 
 **Worst case: LLM influences only 20% of the final score. Best case: 0%.**
 
@@ -24,16 +24,17 @@ Step 4: merge_score.py  → Auto + LLM → final grade
 Output: SYMBOL.json (grade, score, dimensions)
 ```
 
-## 7 Dimensions
+## 8 Dimensions
 
 | Dimension | Weight | Auto? | Method |
 |:---|:--:|:--:|:---|
-| On-chain Data | 20% | ✅ | Market cap rank → score table |
-| Exchange Coverage | 15% | ✅ | Exchange list matching |
+| On-chain Data | 15% | ✅ | Market cap rank → score table |
+| Exchange Coverage | 10% | ✅ | Exchange list matching |
 | Asset Backing | 15% | Partial | Stablecoins/ON/BTC auto; rest → LLM |
 | Age | 10% | ✅ | genesis_date → survival years |
 | Tokenomics | 10% | ✅ | circulating / max supply ratio |
 | Liquidity | 10% | ✅ | 24h volume / market cap ratio |
+| Dev Activity | 10% | ✅ | GitHub stars + last commit |
 | Background | 20% | ❌ | Team/investors/audit → LLM only |
 
 ## Quick Start
@@ -133,6 +134,13 @@ python3 -m pytest tests/ -v
 | > 1% | 50 |
 | <= 1% | 30 |
 
+### Dev Activity (Auto)
+| Stars | Score | Last Commit | Score |
+|:--|:--:|:--|:--:|
+| > 5,000 | 90 | < 30 days | 90 |
+| > 500 | 70 | < 180 days | 70 |
+| > 50 | 50 | < 1 year | 50 |
+| <= 50 | 30 | >= 1 year | 30 |
 
 ## Project Structure
 
