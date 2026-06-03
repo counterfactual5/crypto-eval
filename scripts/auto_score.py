@@ -186,13 +186,8 @@ def auto_score(input_symbol, data_path=None):
     })
     
     # 计算已有自动分的加权总分
-    weights = {
-        "onchain_data": 0.20,
-        "exchange_coverage": 0.20,
-        "asset_backing": 0.20,
-        "apy_source": 0.15,
-        "background": 0.25
-    }
+    # 从 eval-dimensions.json 统一读取权重
+    weights = {d["id"]: d["weight"] for d in dims["dimensions"]}
     total_score = 0
     total_weight = 0
     for dim_id, info in result["auto_scores"].items():

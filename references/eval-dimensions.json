@@ -1,5 +1,12 @@
 {
   "version": 3,
+  "dimensions": [
+    {"id": "onchain_data", "name": "链上数据", "weight": 0.20, "desc": "市值排名、交易量、持币分散度"},
+    {"id": "exchange_coverage", "name": "交易所覆盖", "weight": 0.20, "desc": "Binance/OKX/Coinbase 等主流所上线情况"},
+    {"id": "asset_backing", "name": "资产背书", "weight": 0.20, "desc": "真实资产支撑（RWA/稳定币/蓝筹代币）vs 纯空气"},
+    {"id": "apy_source", "name": "收益来源", "weight": 0.15, "desc": "真实收益（借贷/质押/RWA）vs 补贴引流/旁氏"},
+    {"id": "background", "name": "项目背景", "weight": 0.25, "desc": "团队履历、投资方、机构背书、白皮书质量"}
+  ],
   "scoring_rules": {
     "onchain_data": {
       "auto": true,
@@ -46,7 +53,7 @@
       "auto": "partial",
       "method": "APY value + type + LLM判断",
       "auto_rules": [
-        {"condition": "apy <= 0 (非理财产品)", "score": 50, "note": "不适用"},
+        {"condition": "apy <= 0", "score": 50, "note": "不适用"},
         {"condition": "apy > 0 and apy <= 5", "score": 80, "note": "低APY，大概率真实收益"},
         {"condition": "apy > 5 and apy <= 15", "score": 70, "note": "中等APY，需确认来源"},
         {"condition": "apy > 15 and apy <= 30 and periodType=fixed", "score": 60, "note": "锁仓中高APY"},

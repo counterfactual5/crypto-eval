@@ -19,13 +19,7 @@ def merge(symbol, auto_path=None, llm_path=None, output_path=None):
     # 加载维度定义
     with open(DIM_PATH) as f:
         dims = json.load(f)
-    weights = {
-        "onchain_data": 0.20,
-        "exchange_coverage": 0.20,
-        "asset_backing": 0.20,
-        "apy_source": 0.15,
-        "background": 0.25
-    }
+    weights = {d["id"]: d["weight"] for d in dims["dimensions"]}
     thresholds = dims["grade_thresholds"]
     
     # 加载自动评分

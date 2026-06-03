@@ -26,6 +26,7 @@ def cached_fetch(url, prefix="generic"):
             with open(fpath) as f:
                 return json.load(f)
     try:
+        time.sleep(1.2)  # 防限流：CoinGecko 免费 ~30 req/min
         req = urllib.request.Request(url, headers={"User-Agent": "crypto-eval/1.0", "Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read())
@@ -121,10 +122,16 @@ def collect(coin_id):
             "price_change_7d_pct": md.get("price_change_percentage_7d"),
         }
     
-    # 交易所列表
-    tickers = detail.get("tickers", [])
+    # 交易所列表 — 从 /coins/{id}/tickers 独立端点获取
+    ticker_url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/tickers?exchange_ids=binance,okx,coinbase,bybit,bitget,kraken,gate,kucoin,huobi,bitstamp&depth=false"
+    ticker_data = cached_fetch(ticker_url, f"cg_tickers_{coin_id}")
     exchanges = set()
-    for t in (tickers or [])[:50]:
+    for t in (ticker_data.get("tickers") or [])[:100]:
+        ex = (t.get("market", {}) or {}).get("name", "")
+        if ex:
+            exchanges.add(ex)
+    # 兜底：从 detail 里也取
+    for t in (detail.get("tickers") or [])[:50]:
         ex = (t.get("market", {}) or {}).get("name", "")
         if ex:
             exchanges.add(ex)
