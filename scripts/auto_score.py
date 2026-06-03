@@ -99,6 +99,73 @@ def auto_score_asset(symbol, data, rules):
     return None, None  # needs LLM
 
 
+def auto_score_age(data, rules):
+    """Score based on project survival time from genesis_date."""
+    import datetime
+
+    genesis = data.get("genesis_date")
+    if not genesis:
+        return None, "genesis_date 缺失"
+
+    try:
+        genesis_dt = datetime.date.fromisoformat(genesis)
+    except (ValueError, TypeError):
+        return None, f"无法解析 genesis_date: {genesis}"
+
+    age_days = (datetime.date.today() - genesis_dt).days
+    age_years = age_days / 365.0
+
+    if age_years > 5:
+        return 90, f"存续 {age_years:.1f} 年，穿越多轮牛熊"
+    if age_years > 3:
+        return 80, f"存续 {age_years:.1f} 年，验证充分"
+    if age_years > 1:
+        return 65, f"存续 {age_years:.1f} 年，已站稳"
+    if age_days > 180:
+        return 45, f"存续 {age_days} 天，时间较短"
+    return 25, f"存续 {age_days} 天，新项目"
+
+
+def auto_score_tokenomics(data, rules):
+    """Score dilution risk: circulating / max_supply ratio."""
+    md = data.get("market_data") or {}
+    circ = md.get("circulating_supply")
+    supply = md.get("max_supply") or md.get("total_supply")
+
+    if circ is None or supply is None or supply == 0:
+        return None, "供应量数据不足"
+
+    ratio = circ / supply
+    if ratio > 0.9:
+        return 90, f"流通比 {ratio:.0%}，几乎全流通，抛压小"
+    if ratio > 0.7:
+        return 75, f"流通比 {ratio:.0%}，大部分已释放"
+    if ratio > 0.5:
+        return 60, f"流通比 {ratio:.0%}，持续解锁中"
+    if ratio > 0.2:
+        return 40, f"流通比 {ratio:.0%}，较多待释放"
+    return 20, f"流通比 {ratio:.0%}，大量待解锁，稀释风险高"
+
+
+def auto_score_liquidity(data, rules):
+    """Score liquidity: 24h volume / market_cap ratio."""
+    md = data.get("market_data") or {}
+    volume = md.get("total_volume_24h")
+    mcap = md.get("market_cap_usd")
+
+    if volume is None or mcap is None or mcap == 0:
+        return None, "流动性数据不足"
+
+    ratio = volume / mcap
+    if ratio > 0.2:
+        return 90, f"换手率 {ratio:.0%}，高流动性"
+    if ratio > 0.05:
+        return 70, f"换手率 {ratio:.0%}，中等流动性"
+    if ratio > 0.01:
+        return 50, f"换手率 {ratio:.0%}，低流动性"
+    return 30, f"换手率 {ratio:.0%}，流动性差"
+
+
 def auto_score(input_symbol, data_path=None):
     symbol = input_symbol.upper()
 
@@ -144,6 +211,24 @@ def auto_score(input_symbol, data_path=None):
     result["auto_scores"]["asset_backing"] = {"score": score, "note": note, "auto": score is not None}
     if score is None:
         result["needs_llm"].append({"dimension": "asset_backing", "reason": scoring["asset_backing"]["llm_task"]})
+
+    # age (全自动)
+    score, note = auto_score_age(data, scoring["age"]["rules"])
+    result["auto_scores"]["age"] = {"score": score, "note": note, "auto": score is not None}
+    if score is None:
+        result["needs_llm"].append({"dimension": "age", "reason": "genesis_date 缺失"})
+
+    # tokenomics (全自动)
+    score, note = auto_score_tokenomics(data, scoring["tokenomics"]["rules"])
+    result["auto_scores"]["tokenomics"] = {"score": score, "note": note, "auto": score is not None}
+    if score is None:
+        result["needs_llm"].append({"dimension": "tokenomics", "reason": "供应量数据不足"})
+
+    # liquidity (全自动)
+    score, note = auto_score_liquidity(data, scoring["liquidity"]["rules"])
+    result["auto_scores"]["liquidity"] = {"score": score, "note": note, "auto": score is not None}
+    if score is None:
+        result["needs_llm"].append({"dimension": "liquidity", "reason": "流动性数据不足"})
 
     # background (始终需要 LLM)
     result["auto_scores"]["background"] = {"score": None, "note": None, "auto": False}

@@ -9,6 +9,7 @@ crypto-eval Stage 1: 信息采集
   - DeFiLlama: TVL/协议类别（如果是 DeFi 协议）
   - 链上: 基础 holder 信息（Etherscan 公开 API）
 """
+
 import json
 import os
 import sys
@@ -20,9 +21,11 @@ CACHE_DIR = os.environ.get("CACHE_DIR", os.path.expanduser("~/openclaw-workspace
 CACHE_TTL = int(os.environ.get("CACHE_TTL", "86400"))
 os.makedirs(CACHE_DIR, exist_ok=True)
 
+
 def cached_fetch(url, prefix="generic"):
     """带缓存的 HTTP GET"""
     import hashlib
+
     h = hashlib.md5(url.encode()).hexdigest()[:12]
     fpath = os.path.join(CACHE_DIR, f"{prefix}_{h}.json")
     if os.path.exists(fpath):
@@ -45,6 +48,7 @@ def cached_fetch(url, prefix="generic"):
                 return json.load(f)
         return {"error": str(e)}
 
+
 def search_coingecko(query):
     """通过 CoinGecko search 找到 coin_id"""
     url = f"https://api.coingecko.com/api/v3/search?query={urllib.parse.quote(query)}"
@@ -54,20 +58,24 @@ def search_coingecko(query):
         return None
     return coins[0]["id"]
 
+
 def get_coin_detail(coin_id):
     """CoinGecko coin detail: 交易所列表、市值、描述、上线时间"""
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}?localization=false&tickers=true&community_data=false&developer_data=false"
     return cached_fetch(url, "cg_detail")
+
 
 def get_market_data(coin_id):
     """CoinGecko market data"""
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=usd&days=30"
     return cached_fetch(url, "cg_market")
 
+
 def get_defillama_protocol(slug):
     """DeFiLlama TVL"""
     url = f"https://api.llama.fi/protocol/{slug}"
     return cached_fetch(url, "dllama")
+
 
 def resolve_input(raw_input):
     """
@@ -93,6 +101,7 @@ def resolve_input(raw_input):
     coin_id = search_coingecko(raw)
     return coin_id
 
+
 def collect(coin_id):
     """采集全量数据"""
     detail = get_coin_detail(coin_id)
@@ -110,6 +119,7 @@ def collect(coin_id):
         "links": {},
         "exchanges": [],
         "platforms": list((detail.get("platforms") or {}).keys()),
+        "genesis_date": detail.get("genesis_date"),
     }
 
     md = detail.get("market_data", {})
@@ -152,6 +162,7 @@ def collect(coin_id):
     }
 
     return result
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

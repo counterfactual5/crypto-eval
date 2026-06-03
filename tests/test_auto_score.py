@@ -84,6 +84,60 @@ def test_asset_unknown():
     assert score is None  # needs LLM
 
 
+# ===== age =====
+def test_age_bitcoin():
+    score, note = auto_score_mod.auto_score_age({"genesis_date": "2009-01-03"}, {})
+    assert score >= 90
+
+
+def test_age_new_token():
+    score, note = auto_score_mod.auto_score_age({"genesis_date": "2026-04-01"}, {})
+    assert score == 25
+
+
+def test_age_missing():
+    score, note = auto_score_mod.auto_score_age({}, {})
+    assert score is None
+
+
+# ===== tokenomics =====
+def test_tokenomics_fully_circulating():
+    data = {"market_data": {"circulating_supply": 19000000, "max_supply": 21000000}}
+    score, note = auto_score_mod.auto_score_tokenomics(data, {})
+    assert score == 90
+
+
+def test_tokenomics_heavy_dilution():
+    data = {"market_data": {"circulating_supply": 2000000, "max_supply": 100000000}}
+    score, note = auto_score_mod.auto_score_tokenomics(data, {})
+    assert score == 20
+
+
+def test_tokenomics_fallback_total_supply():
+    data = {"market_data": {"circulating_supply": 100000, "total_supply": 200000}}
+    score, note = auto_score_mod.auto_score_tokenomics(data, {})
+    assert score > 0
+
+
+# ===== liquidity =====
+def test_liquidity_high():
+    data = {"market_data": {"total_volume_24h": 5e9, "market_cap_usd": 1e10}}
+    score, note = auto_score_mod.auto_score_liquidity(data, {})
+    assert score == 90
+
+
+def test_liquidity_low():
+    data = {"market_data": {"total_volume_24h": 1e6, "market_cap_usd": 1e9}}
+    score, note = auto_score_mod.auto_score_liquidity(data, {})
+    assert score <= 30
+
+
+def test_liquidity_missing():
+    data = {"market_data": {}}
+    score, note = auto_score_mod.auto_score_liquidity(data, {})
+    assert score is None
+
+
 # ===== 确定性测试 =====
 def test_merge_deterministic():
     """同输入永远出同结果"""
@@ -97,9 +151,12 @@ def test_merge_deterministic():
             "onchain_data": {"score": 80, "note": "test", "auto": True},
             "exchange_coverage": {"score": 75, "note": "test", "auto": True},
             "asset_backing": {"score": 95, "note": "test", "auto": True},
+            "age": {"score": 85, "note": "test", "auto": True},
+            "tokenomics": {"score": 90, "note": "test", "auto": True},
+            "liquidity": {"score": 70, "note": "test", "auto": True},
             "background": {"score": 80, "note": "test", "auto": True},
         },
-        "auto_partial_score": 82.5,
+        "auto_partial_score": 82.0,
         "auto_partial_weight": 1.0,
         "remaining_llm_weight": 0.0,
         "needs_llm": [],
@@ -114,7 +171,7 @@ def test_merge_deterministic():
     r1 = merge_mod.merge("TEST", auto_path=auto_path, output_path=out_path)
     r2 = merge_mod.merge("TEST", auto_path=auto_path, output_path=out_path)
     assert r1["score"] == r2["score"]
-    assert abs(r1["score"] - 82.5) < 0.1
+    assert abs(r1["score"] - 82.0) < 0.1
     assert r1["grade"] == "A"
     os.unlink(auto_path)
     os.unlink(out_path)

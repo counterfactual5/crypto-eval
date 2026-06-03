@@ -4,9 +4,9 @@
 
 ## Why?
 
-Different LLMs give different evaluation scores for the same asset. **crypto-eval minimizes LLM dependency** by using deterministic rule-based scoring for 3 out of 4 dimensions, leaving only 1 dimension to LLM judgment.
+Different LLMs give different evaluation scores for the same asset. **crypto-eval minimizes LLM dependency** by using deterministic rule-based scoring for 6 out of 7 dimensions, leaving only 1 dimension to LLM judgment.
 
-**Worst case: LLM influences only 25% of the final score. Best case: 0%.**
+**Worst case: LLM influences only 20% of the final score. Best case: 0%.**
 
 ## Architecture
 
@@ -24,14 +24,17 @@ Step 4: merge_score.py  → Auto + LLM → final grade
 Output: SYMBOL.json (grade, score, dimensions)
 ```
 
-## 4 Dimensions
+## 7 Dimensions
 
 | Dimension | Weight | Auto? | Method |
 |:---|:--:|:--:|:---|
-| On-chain Data | 25% | ✅ | Market cap rank → score table |
-| Exchange Coverage | 25% | ✅ | Exchange list matching |
-| Asset Backing | 25% | Partial | Stablecoins/ON/BTC auto; rest → LLM |
-| Background | 25% | ❌ | Team/investors/audit → LLM only |
+| On-chain Data | 20% | ✅ | Market cap rank → score table |
+| Exchange Coverage | 15% | ✅ | Exchange list matching |
+| Asset Backing | 15% | Partial | Stablecoins/ON/BTC auto; rest → LLM |
+| Age | 10% | ✅ | genesis_date → survival years |
+| Tokenomics | 10% | ✅ | circulating / max supply ratio |
+| Liquidity | 10% | ✅ | 24h volume / market cap ratio |
+| Background | 20% | ❌ | Team/investors/audit → LLM only |
 
 ## Quick Start
 
@@ -104,6 +107,32 @@ python3 -m pytest tests/ -v
 | BTC/WBTC | 98 |
 | ETH | 95 |
 
+### Age (Auto)
+| Survival | Score |
+|:--|:--:|
+| > 5 years | 90 |
+| > 3 years | 80 |
+| > 1 year | 65 |
+| > 180 days | 45 |
+| <= 180 days | 25 |
+
+### Tokenomics (Auto)
+| Circulating / Max | Score |
+|:--|:--:|
+| > 90% | 90 |
+| > 70% | 75 |
+| > 50% | 60 |
+| > 20% | 40 |
+| <= 20% | 20 |
+
+### Liquidity (Auto)
+| Volume / MCap | Score |
+|:--|:--:|
+| > 20% | 90 |
+| > 5% | 70 |
+| > 1% | 50 |
+| <= 1% | 30 |
+
 
 ## Project Structure
 
@@ -119,7 +148,7 @@ crypto-eval/
 ├── references/
 │   └── eval-dimensions.json    # Scoring rules & weights
 └── tests/
-    └── test_auto_score.py      # 12 tests (all deterministic)
+    └── test_auto_score.py      # 21 tests (all deterministic)
 ```
 
 ## Integration

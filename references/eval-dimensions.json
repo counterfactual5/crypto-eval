@@ -1,28 +1,46 @@
 {
-  "version": 4,
+  "version": 5,
   "dimensions": [
     {
       "id": "onchain_data",
       "name": "链上数据",
-      "weight": 0.25,
+      "weight": 0.2,
       "desc": "市值排名、交易量、持币分散度"
     },
     {
       "id": "exchange_coverage",
       "name": "交易所覆盖",
-      "weight": 0.25,
+      "weight": 0.15,
       "desc": "Binance/OKX/Coinbase 等主流所上线情况"
     },
     {
       "id": "asset_backing",
       "name": "资产背书",
-      "weight": 0.25,
+      "weight": 0.15,
       "desc": "真实资产支撑（RWA/稳定币/蓝筹代币）vs 纯空气"
+    },
+    {
+      "id": "age",
+      "name": "存续时间",
+      "weight": 0.1,
+      "desc": "项目上线至今的时间，衡量穿越牛熊的能力"
+    },
+    {
+      "id": "tokenomics",
+      "name": "稀释风险",
+      "weight": 0.1,
+      "desc": "流通量/总供应量比，评估未来抛压"
+    },
+    {
+      "id": "liquidity",
+      "name": "流动性",
+      "weight": 0.1,
+      "desc": "24h成交量/市值比，衡量进出难度"
     },
     {
       "id": "background",
       "name": "项目背景",
-      "weight": 0.25,
+      "weight": 0.2,
       "desc": "团队履历、投资方、机构背书、白皮书质量"
     }
   ],
@@ -97,10 +115,28 @@
       ],
       "llm_task": "如果不匹配自动规则，LLM 判断：该项目是否有真实资产/收入/使用价值？输出 score(0-100) + 一句话 note"
     },
+    "age": {
+      "auto": true,
+      "method": "genesis_date → age_years threshold",
+      "desc": "项目存续时间越长，越可靠。>5年=90, >3年=80, >1年=65, >180天=45, 其余=25",
+      "source_field": "genesis_date"
+    },
+    "tokenomics": {
+      "auto": true,
+      "method": "circulating_supply / max_supply ratio",
+      "desc": "流通比越高，稀释风险越小。>90%=90, >70%=75, >50%=60, >20%=40, 其余=20",
+      "source_fields": ["circulating_supply", "max_supply", "total_supply"]
+    },
+    "liquidity": {
+      "auto": true,
+      "method": "24h_volume / market_cap ratio",
+      "desc": "换手率越高，进出越容易。>20%=90, >5%=70, >1%=50, 其余=30",
+      "source_fields": ["total_volume_24h", "market_cap_usd"]
+    },
     "background": {
       "auto": false,
       "method": "LLM only",
-      "llm_task": "基于采集数据和 web_search 结果，评估团队/投资方/机构背书。输出 score(0-100) + 一句话 note。硬性约束：有 a16z/Paradigm/Multicoin 等顶级 VC 投资 -> >=75；无已知投资方 -> <=50；匿名团队 -> <=30",
+      "llm_task": "基于采集数据和 web_search 结果，评估团队/投资方/机构背书。输出 score(0-100) + 一句话 note。硬性约束：有 a16z/Paradigm/Multicoin 等顶级 VC 投资 → >=75；无已知投资方 → <=50；匿名团队 → <=30",
       "hints": [
         "查 team 是否有 LinkedIn",
         "查 investors 背书",
