@@ -1,0 +1,76 @@
+{
+  "version": 3,
+  "scoring_rules": {
+    "onchain_data": {
+      "auto": true,
+      "method": "market_cap_rank lookup",
+      "rules": [
+        {"condition": "rank <= 10", "score": 95},
+        {"condition": "rank <= 20", "score": 88},
+        {"condition": "rank <= 50", "score": 80},
+        {"condition": "rank <= 100", "score": 72},
+        {"condition": "rank <= 200", "score": 60},
+        {"condition": "rank <= 500", "score": 45},
+        {"condition": "rank > 500 or unranked", "score": 25}
+      ],
+      "fallback": "用 market_cap_usd 估算排名"
+    },
+    "exchange_coverage": {
+      "auto": true,
+      "method": "exchange list check",
+      "rules": [
+        {"condition": "Binance + OKX + Coinbase 都上", "score": 95},
+        {"condition": "Binance + OKX/Bybit/Bitget 中 ≥2", "score": 80},
+        {"condition": "Binance 单独上", "score": 75},
+        {"condition": "OKX/Bybit/Bitget ≥2（无 Binance）", "score": 60},
+        {"condition": "仅 1 家主流所", "score": 40},
+        {"condition": "仅 DEX/小所", "score": 20}
+      ],
+      "major_exchanges": ["Binance", "OKX", "Coinbase", "Bybit", "Bitget", "Kraken", "Gate.io", "KuCoin"],
+      "fallback": "web_search '{symbol} listed on exchange'"
+    },
+    "asset_backing": {
+      "auto": "partial",
+      "method": "category + hardcoded + LLM judgment",
+      "auto_rules": [
+        {"condition": "symbol in [USDC,USDT,USDS,DAI,TUSD,USD1,USDE]", "score": 95, "note": "主流稳定币"},
+        {"condition": "symbol ends with ON", "score": 92, "note": "Ondo RWA链上证券"},
+        {"condition": "symbol = BTC or WBTC", "score": 98, "note": "数字黄金"},
+        {"condition": "symbol = ETH", "score": 95, "note": "公链之王"},
+        {"condition": "category contains 'Stablecoin'", "score": 80, "note": "稳定币（需LLM确认背书）"},
+        {"condition": "category contains 'RWA' or 'Tokenized Stock'", "score": 85, "note": "RWA资产（需LLM确认）"}
+      ],
+      "llm_task": "如果不匹配自动规则，LLM 判断：该项目是否有真实资产/收入/使用价值？输出 score(0-100) + 一句话 note"
+    },
+    "apy_source": {
+      "auto": "partial",
+      "method": "APY value + type + LLM判断",
+      "auto_rules": [
+        {"condition": "apy <= 0 (非理财产品)", "score": 50, "note": "不适用"},
+        {"condition": "apy > 0 and apy <= 5", "score": 80, "note": "低APY，大概率真实收益"},
+        {"condition": "apy > 5 and apy <= 15", "score": 70, "note": "中等APY，需确认来源"},
+        {"condition": "apy > 15 and apy <= 30 and periodType=fixed", "score": 60, "note": "锁仓中高APY"},
+        {"condition": "apy > 30 and symbol not ends with ON", "score": 25, "note": "极高APY，大概率补贴引流"},
+        {"condition": "apy > 15 and symbol ends with ON", "score": 85, "note": "ON代币高APY来自Ondo协议真实收益"}
+      ],
+      "llm_task": "如果不在自动规则范围，LLM判断 APY 来源是否可持续"
+    },
+    "background": {
+      "auto": false,
+      "method": "LLM only",
+      "llm_task": "基于采集数据和 web_search 结果，评估团队/投资方/机构背书。输出 score(0-100) + 一句话 note。硬性约束：有 a16z/Paradigm/Multicoin 等顶级 VC 投资 → ≥75；无已知投资方 → ≤50；匿名团队 → ≤30",
+      "hints": [
+        "查 team 是否有 LinkedIn",
+        "查 investors 背书",
+        "查是否开源（GitHub stars）",
+        "查是否有审计报告"
+      ]
+    }
+  },
+  "grade_thresholds": {
+    "A": {"label": "★★★ 高信誉", "min_score": 80},
+    "B": {"label": "★★☆ 有基本面", "min_score": 60},
+    "C": {"label": "⏳ 特殊类型", "min_score": -1},
+    "D": {"label": "⚠️ 需谨慎", "min_score": 0}
+  }
+}
