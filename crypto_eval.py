@@ -17,9 +17,7 @@ import os
 import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-EVAL_DIR = os.path.abspath(
-    os.path.join(SCRIPT_DIR, "..", "..", "memory", "evaluations")
-)
+EVAL_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", "memory", "evaluations"))
 SCRIPTS_DIR = os.path.join(SCRIPT_DIR, "scripts")
 
 
@@ -43,9 +41,7 @@ def cmd_evaluate(args):
     # Step 1: 采集
     raw_path = os.path.join(EVAL_DIR, f"{symbol}_raw.json")
     print(f"📡 Step 1: 采集 {symbol} 数据...")
-    stdout, stderr, rc = run_script(
-        [f"{SCRIPTS_DIR}/collect.py", args.symbol, "--json-output", raw_path]
-    )
+    stdout, stderr, rc = run_script([f"{SCRIPTS_DIR}/collect.py", args.symbol, "--json-output", raw_path])
     if rc != 0 and not os.path.exists(raw_path):
         print(f"❌ 采集失败: {stderr}")
         return 1
@@ -53,9 +49,7 @@ def cmd_evaluate(args):
     # Step 2: 自动评分
     auto_path = os.path.join(EVAL_DIR, f"{symbol}_auto.json")
     print("⚙️  Step 2: 自动评分...")
-    stdout, stderr, rc = run_script(
-        [f"{SCRIPTS_DIR}/auto_score.py", symbol, "--output", auto_path]
-    )
+    stdout, stderr, rc = run_script([f"{SCRIPTS_DIR}/auto_score.py", symbol, "--output", auto_path])
     if rc != 0:
         print(f"❌ 自动评分失败: {stderr}")
         return 1
@@ -73,9 +67,7 @@ def cmd_evaluate(args):
         dims_str = ", ".join(d["dimension"] for d in needs_llm)
         print(f"\n🤖 Step 3: 需要 LLM 评估: {dims_str}")
         llm_task_path = os.path.join(EVAL_DIR, f"{symbol}_llm_task.json")
-        stdout, stderr, rc = run_script(
-            [f"{SCRIPTS_DIR}/generate_llm_task.py", symbol, "--output", llm_task_path]
-        )
+        stdout, stderr, rc = run_script([f"{SCRIPTS_DIR}/generate_llm_task.py", symbol, "--output", llm_task_path])
 
         if args.llm_file and os.path.exists(args.llm_file):
             # 有 LLM 结果文件，直接合并
@@ -91,12 +83,8 @@ def cmd_evaluate(args):
                     with open(prompt_path, "w") as f:
                         f.write(task["prompt"])
                     print(f"   Prompt 已保存: {prompt_path}")
-                    print(
-                        f"   请将 LLM 输出保存到: memory/evaluations/{symbol}_llm.json"
-                    )
-                    print(
-                        f"   然后运行: python3 crypto_eval.py merge {symbol} --llm {symbol}_llm.json"
-                    )
+                    print(f"   请将 LLM 输出保存到: memory/evaluations/{symbol}_llm.json")
+                    print(f"   然后运行: python3 crypto_eval.py merge {symbol} --llm {symbol}_llm.json")
                     return 0  # 等待 LLM
             llm_path = None
     else:
@@ -117,13 +105,7 @@ def cmd_evaluate(args):
     print("\n📊 最终评级:")
     print(f"   {result['symbol']} — {result['grade_label']}（{result['score']}分）")
     for dim_id, info in result["dimensions"].items():
-        src_tag = (
-            "🤖"
-            if info["source"] == "llm"
-            else "⚙️"
-            if info["source"] == "auto"
-            else "❓"
-        )
+        src_tag = "🤖" if info["source"] == "llm" else "⚙️" if info["source"] == "auto" else "❓"
         print(f"   {src_tag} {dim_id}: {info['score']} — {info['note']}")
     if result.get("summary"):
         print(f"   📝 {result['summary']}")
@@ -160,11 +142,21 @@ def cmd_show(args):
         return 1
     with open(path) as f:
         data = json.load(f)
+
+    # 计算置信度
+    dims = data.get("dimensions", {})
+    auto_count = sum(1 for d in dims.values() if d.get("source") == "auto")
+    total_count = len(dims) or 1
+    confidence = auto_count / total_count * 100
+    conf_bar = "█" * int(confidence / 10) + "░" * (10 - int(confidence / 10))
+
     print(f"{data['symbol']} — {data['grade_label']}（{data['score']}分）")
     print(f"评估时间: {data.get('evaluated_at', 'unknown')}")
-    for dim_id, info in data.get("dimensions", {}).items():
+    print(f"置信度:   [{conf_bar}] {confidence:.0f}% 自动评分")
+    for dim_id, info in dims.items():
         src = info.get("source", "?")
-        print(f"  {src}: {dim_id} {info['score']} — {info['note']}")
+        src_tag = "⚙ auto" if src == "auto" else "🤖 LLM" if src == "llm" else "❓ default"
+        print(f"  {src_tag:<9} {dim_id:>18} {info['score']:>3} — {info['note']}")
     if data.get("summary"):
         print(f"\n{data['summary']}")
     if data.get("risk"):
@@ -204,6 +196,49 @@ def cmd_list(args):
     return 0
 
 
+def cmd_batch(args):
+    """批量评估多个代币"""
+    symbols = args.symbols
+    if not symbols:
+        print("❌ 至少需要一个 symbol")
+        return 1
+
+    results = {}
+    ok = 0
+    fail = 0
+    for i, sym in enumerate(symbols, 1):
+        print(f"\n── [{i}/{len(symbols)}] {sym} ──")
+        try:
+            rc = cmd_evaluate(args_simple(sym))
+            results[sym] = "OK" if rc == 0 else "FAIL"
+            if rc == 0:
+                ok += 1
+            else:
+                fail += 1
+        except Exception as e:
+            print(f"   ❌ 异常: {e}")
+            results[sym] = f"ERROR: {e}"
+            fail += 1
+
+    print(f"\n{'=' * 50}")
+    print(f"批量评估完成: {ok} 成功, {fail} 失败")
+    for sym, status in results.items():
+        icon = "✅" if status == "OK" else "❌"
+        detail = "" if status == "OK" else f" — {status}"
+        print(f"  {icon} {sym}{detail}")
+    return 0 if fail == 0 else 1
+
+
+def args_simple(symbol):
+    """创建一个简单的 args 对象用于单个 evaluate 调用"""
+    import argparse
+
+    ns = argparse.Namespace()
+    ns.symbol = symbol
+    ns.llm_file = None
+    return ns
+
+
 def cmd_test(args):
     """运行测试"""
     import subprocess
@@ -212,9 +247,7 @@ def cmd_test(args):
     if not os.path.exists(test_dir):
         print("❌ tests/ 目录不存在")
         return 1
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", test_dir, "-v"], capture_output=False
-    )
+    result = subprocess.run([sys.executable, "-m", "pytest", test_dir, "-v"], capture_output=False)
     return result.returncode
 
 
@@ -243,6 +276,10 @@ def main():
     # list
     sub.add_parser("list", help="列出所有评估")
 
+    # batch
+    p_batch = sub.add_parser("batch", help="批量评估多个代币")
+    p_batch.add_argument("symbols", nargs="+", help="一个或多个 Symbol")
+
     # test
     sub.add_parser("test", help="运行测试")
 
@@ -257,6 +294,7 @@ def main():
         "merge": cmd_merge,
         "show": cmd_show,
         "list": cmd_list,
+        "batch": cmd_batch,
         "test": cmd_test,
     }
     return commands[args.command](args)

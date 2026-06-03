@@ -148,7 +148,7 @@
   "grade_thresholds": {
     "A": { "label": "★★★ 高信誉", "min_score": 80 },
     "B": { "label": "★★☆ 有基本面", "min_score": 60 },
-    "C": { "label": "⏳ 特殊类型", "min_score": -1 },
+    "C": { "label": "⏳ 特殊类型", "min_score": 40 },
     "D": { "label": "⚠️ 需谨慎", "min_score": 0 }
   }
 }
