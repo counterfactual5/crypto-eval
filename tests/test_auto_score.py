@@ -159,6 +159,49 @@ def test_dev_activity_missing():
     assert score is None
 
 
+# ===== red flags =====
+def test_red_flag_new_coin_no_exchange():
+    merge_mod = import_module("merge_score")
+    flags = merge_mod.detect_red_flags(
+        {"age": {"score": 25}, "exchange_coverage": {"score": 20}},
+        {"market_cap_rank": 500},
+    )
+    assert any(f["rule"] == "new_coin_no_exchange" for f in flags)
+
+
+def test_red_flag_high_dilution_top100():
+    merge_mod = import_module("merge_score")
+    flags = merge_mod.detect_red_flags(
+        {"tokenomics": {"score": 20}, "onchain_data": {"score": 80}},
+        {"market_cap_rank": 50, "market_data": {}},
+    )
+    assert any(f["rule"] == "high_dilution_top100" for f in flags)
+
+
+def test_red_flag_no_github():
+    merge_mod = import_module("merge_score")
+    flags = merge_mod.detect_red_flags(
+        {"dev_activity": {"score": None}},
+        {},
+    )
+    assert any(f["rule"] == "no_github" for f in flags)
+
+
+def test_red_flag_clean():
+    merge_mod = import_module("merge_score")
+    flags = merge_mod.detect_red_flags(
+        {
+            "age": {"score": 90},
+            "exchange_coverage": {"score": 95},
+            "tokenomics": {"score": 85},
+            "liquidity": {"score": 80},
+            "dev_activity": {"score": 70},
+        },
+        {"market_cap_rank": 10, "market_data": {"market_cap_usd": 1e10}},
+    )
+    assert len(flags) == 0
+
+
 # ===== 确定性测试 =====
 def test_merge_deterministic():
     """同输入永远出同结果"""

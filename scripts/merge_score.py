@@ -19,6 +19,68 @@ DIM_PATH = os.path.join(SKILL_DIR, "references", "eval-dimensions.json")
 CST = timezone(timedelta(hours=8))
 
 
+def detect_red_flags(auto_scores, raw_data):
+    """Return list of red-flag dicts based on dangerous dimension combos."""
+    flags = []
+
+    # Helpers
+    def score(dim):
+        return (auto_scores.get(dim) or {}).get("score")
+
+    md = raw_data.get("market_data") or {}
+    gh = raw_data.get("github") or {}
+
+    # 1. 新币 + 无主流交易所
+    age_score = score("age")
+    ex_score = score("exchange_coverage")
+    if age_score is not None and age_score <= 45 and ex_score is not None and ex_score < 40:
+        flags.append(
+            {"level": "high", "rule": "new_coin_no_exchange", "msg": "新币（<180天）且未上主流交易所 — 极高风险"}
+        )
+
+    # 2. 高稀释 + 高市值
+    tok_score = score("tokenomics")
+    rank = raw_data.get("market_cap_rank")
+    if tok_score is not None and tok_score <= 40 and rank is not None and rank <= 100:
+        flags.append(
+            {"level": "high", "rule": "high_dilution_top100", "msg": "Top100 市值但流通量极低 — 大量待解锁抛压"}
+        )
+
+    # 3. 低流动性 + 小市值
+    liq_score = score("liquidity")
+    mcap = md.get("market_cap_usd")
+    if liq_score is not None and liq_score <= 30 and mcap is not None and mcap < 1e8:
+        flags.append(
+            {"level": "medium", "rule": "low_liquidity_small_cap", "msg": "小市值且流动性差 — 进出困难，易被套"}
+        )
+
+    # 4. GitHub 停滞
+    last_commit = gh.get("last_commit_at")
+    if last_commit:
+        from datetime import datetime, timezone
+
+        try:
+            commit_dt = datetime.fromisoformat(last_commit.replace("Z", "+00:00"))
+            days_ago = (datetime.now(timezone.utc) - commit_dt).days
+            if days_ago > 365:
+                flags.append(
+                    {
+                        "level": "medium",
+                        "rule": "stale_github",
+                        "msg": f"GitHub 最后提交在 {days_ago} 天前 — 开发可能停滞",
+                    }
+                )
+        except (ValueError, TypeError):
+            pass
+
+    # 5. 无 GitHub 且背景需 LLM
+    dev_score = score("dev_activity")
+    if dev_score is None:
+        flags.append({"level": "medium", "rule": "no_github", "msg": "无公开 GitHub 仓库 — 无法验证开发活跃度"})
+
+    return flags
+
+
 def merge(symbol, auto_path=None, llm_path=None, output_path=None):
     # 加载维度定义
     with open(DIM_PATH) as f:
@@ -30,6 +92,23 @@ def merge(symbol, auto_path=None, llm_path=None, output_path=None):
     auto_f = auto_path or os.path.join(EVAL_DIR, f"{symbol.upper()}_auto.json")
     with open(auto_f) as f:
         auto = json.load(f)
+
+    # Schema version check
+    current_version = dims.get("version", 1)
+    auto_version = auto.get("schema_version", 1)
+    if auto_version != current_version:
+        print(
+            f"⚠️  schema 版本不匹配: 评估使用 v{auto_version}, 当前规则 v{current_version}。"
+            f"建议重新运行 evaluate 以获取最新评分。",
+            file=sys.stderr,
+        )
+
+    # 加载原始采集数据（用于 red flags）
+    raw_data = {}
+    raw_path = os.path.join(EVAL_DIR, f"{symbol.upper()}_raw.json")
+    if os.path.exists(raw_path):
+        with open(raw_path) as f:
+            raw_data = json.load(f)
 
     # 加载 LLM 评分（可选）
     llm_scores = {}
@@ -72,6 +151,9 @@ def merge(symbol, auto_path=None, llm_path=None, output_path=None):
     llm_opp = llm_raw.get("opportunity", "") if has_llm else ""
     llm_sources = llm_raw.get("sources", []) if has_llm else []
 
+    # Red flags
+    red_flags = detect_red_flags(auto.get("auto_scores", {}), raw_data)
+
     result = {
         "symbol": symbol.upper(),
         "name": auto.get("name", ""),
@@ -80,6 +162,7 @@ def merge(symbol, auto_path=None, llm_path=None, output_path=None):
         "grade_label": grade_label,
         "score": round(total, 1),
         "dimensions": final_dims,
+        "red_flags": red_flags,
         "summary": llm_summary,
         "risk": llm_risk,
         "opportunity": llm_opp,

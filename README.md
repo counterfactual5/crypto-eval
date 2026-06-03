@@ -60,6 +60,12 @@ python3 crypto_eval.py evaluate 0x6982508145454Ce325dDbE47a25d4ec3d2311933
 # View results
 python3 crypto_eval.py show NIGHT
 python3 crypto_eval.py list
+
+# Batch evaluation
+python3 crypto_eval.py batch BTC ETH SOL --quiet
+
+# Compare side-by-side
+python3 crypto_eval.py compare BTC ETH SOL
 ```
 
 ## Run Tests
@@ -156,7 +162,7 @@ crypto-eval/
 ├── references/
 │   └── eval-dimensions.json    # Scoring rules & weights
 └── tests/
-    └── test_auto_score.py      # 21 tests (all deterministic)
+    └── test_auto_score.py      # 28 tests (all deterministic)
 ```
 
 ## Integration

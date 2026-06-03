@@ -8,6 +8,8 @@ crypto-eval: 统一 CLI 入口
   python3 crypto_eval.py merge NIGHT --llm llm.json   # 合并 LLM 结果
   python3 crypto_eval.py show NIGHT                   # 显示已有评估
   python3 crypto_eval.py list                         # 列出所有评估
+  python3 crypto_eval.py batch BTC ETH SOL            # 批量评估
+  python3 crypto_eval.py compare BTC ETH SOL          # 并排对比
   python3 crypto_eval.py test                         # 跑测试
 """
 
@@ -153,6 +155,16 @@ def cmd_show(args):
     print(f"{data['symbol']} — {data['grade_label']}（{data['score']}分）")
     print(f"评估时间: {data.get('evaluated_at', 'unknown')}")
     print(f"置信度:   [{conf_bar}] {confidence:.0f}% 自动评分")
+
+    # Red flags
+    red_flags = data.get("red_flags", [])
+    if red_flags:
+        print(f"\n🚩 风险警示（{len(red_flags)} 项）:")
+        for flag in red_flags:
+            level_icon = "🔴" if flag["level"] == "high" else "🟡"
+            print(f"   {level_icon} {flag['msg']}")
+    else:
+        print("\n✅ 无显著风险警示")
     for dim_id, info in dims.items():
         src = info.get("source", "?")
         src_tag = "⚙ auto" if src == "auto" else "🤖 LLM" if src == "llm" else "❓ default"
@@ -243,6 +255,69 @@ def args_simple(symbol, llm_file=None):
     return ns
 
 
+def cmd_compare(args):
+    """并排对比多个代币的评估结果"""
+    symbols = [s.upper() for s in args.symbols]
+    if len(symbols) < 2:
+        print("❌ 至少需要两个 symbol 才能对比")
+        return 1
+
+    # 加载所有评估
+    results = {}
+    for sym in symbols:
+        path = os.path.join(EVAL_DIR, f"{sym}.json")
+        if not os.path.exists(path):
+            print(f"❌ 未找到 {sym} 的评估记录")
+            return 1
+        with open(path) as f:
+            results[sym] = json.load(f)
+
+    # 收集所有维度
+    all_dims = set()
+    for r in results.values():
+        all_dims.update(r.get("dimensions", {}).keys())
+    dim_order = [d for d in results[symbols[0]].get("dimensions", {}) if d in all_dims]
+    # Fallback: use sorted order if first result missing dims
+    if not dim_order:
+        dim_order = sorted(all_dims)
+
+    # Header
+    header = f"{'Dimension':<20}"
+    for sym in symbols:
+        header += f" | {sym:>8}"
+    print(header)
+    print("-" * len(header))
+
+    # Grade + Score row
+    grade_row = f"{'Grade/Score':<20}"
+    for sym in symbols:
+        r = results[sym]
+        grade_row += f" | {r['grade_label']:>6} ({r['score']:.0f})"
+    print(grade_row)
+    print("-" * len(header))
+
+    # Each dimension
+    for dim_id in dim_order:
+        row = f"{dim_id:<20}"
+        for sym in symbols:
+            dim = results[sym].get("dimensions", {}).get(dim_id, {})
+            score = dim.get("score", "?")
+            src = dim.get("source", "?")
+            tag = "A" if src == "auto" else "L" if src == "llm" else "?"
+            row += f" | {score:>5}{tag}"
+        print(row)
+
+    # Red flags summary
+    print("\n🚩 风险警示:")
+    for sym in symbols:
+        flags = results[sym].get("red_flags", [])
+        icon = "🔴" if any(f["level"] == "high" for f in flags) else "🟡" if flags else "✅"
+        count = len(flags)
+        print(f"  {icon} {sym}: {count} 项")
+
+    return 0
+
+
 def cmd_test(args):
     """运行测试"""
     import subprocess
@@ -286,6 +361,10 @@ def main():
     p_batch.add_argument("--quiet", action="store_true", help="静默模式，只输出汇总")
     p_batch.add_argument("--llm-file", help="LLM 结果文件路径（用于批量合并）")
 
+    # compare
+    p_cmp = sub.add_parser("compare", help="并排对比多个代币")
+    p_cmp.add_argument("symbols", nargs="+", help="两个或多个 Symbol")
+
     # test
     sub.add_parser("test", help="运行测试")
 
@@ -301,6 +380,7 @@ def main():
         "show": cmd_show,
         "list": cmd_list,
         "batch": cmd_batch,
+        "compare": cmd_compare,
         "test": cmd_test,
     }
     return commands[args.command](args)

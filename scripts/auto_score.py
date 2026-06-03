@@ -300,6 +300,7 @@ def auto_score(input_symbol, data_path=None):
     result["auto_partial_score"] = round(total_score, 1) if total_weight > 0 else 0
     result["auto_partial_weight"] = round(total_weight, 2)
     result["remaining_llm_weight"] = round(1 - total_weight, 2)
+    result["schema_version"] = dims.get("version", 1)
 
     return result
 
