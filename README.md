@@ -73,8 +73,8 @@ python3 -m pytest tests/ -v
 |:--:|:---|:--:|
 | A | ★★★ High Trust | ≥ 80 |
 | B | ★★☆ Solid Fundamentals | ≥ 60 |
-| C | ⏳ Special (locked, etc.) | N/A |
-| D | ⚠️ Caution | < 60 |
+| C | ⏳ Medium Risk | ≥ 40 |
+| D | ⚠️ Caution | < 40 |
 
 ## Scoring Rules (Deterministic)
 
