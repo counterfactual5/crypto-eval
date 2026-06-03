@@ -41,7 +41,7 @@ def cached_fetch(url, prefix="generic"):
         with open(fpath, "w") as f:
             json.dump(data, f)
         return data
-    except Exception as e:
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as e:
         # 返回缓存（即使过期）或空
         if os.path.exists(fpath):
             with open(fpath) as f:

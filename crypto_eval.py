@@ -203,20 +203,24 @@ def cmd_batch(args):
         print("❌ 至少需要一个 symbol")
         return 1
 
+    quiet = getattr(args, "quiet", False)
+    llm_file = getattr(args, "llm_file", None)
     results = {}
     ok = 0
     fail = 0
     for i, sym in enumerate(symbols, 1):
-        print(f"\n── [{i}/{len(symbols)}] {sym} ──")
+        if not quiet:
+            print(f"\n── [{i}/{len(symbols)}] {sym} ──")
         try:
-            rc = cmd_evaluate(args_simple(sym))
+            rc = cmd_evaluate(args_simple(sym, llm_file=llm_file))
             results[sym] = "OK" if rc == 0 else "FAIL"
             if rc == 0:
                 ok += 1
             else:
                 fail += 1
         except Exception as e:
-            print(f"   ❌ 异常: {e}")
+            if not quiet:
+                print(f"   ❌ 异常: {e}")
             results[sym] = f"ERROR: {e}"
             fail += 1
 
@@ -229,13 +233,13 @@ def cmd_batch(args):
     return 0 if fail == 0 else 1
 
 
-def args_simple(symbol):
+def args_simple(symbol, llm_file=None):
     """创建一个简单的 args 对象用于单个 evaluate 调用"""
     import argparse
 
     ns = argparse.Namespace()
     ns.symbol = symbol
-    ns.llm_file = None
+    ns.llm_file = llm_file
     return ns
 
 
@@ -279,6 +283,8 @@ def main():
     # batch
     p_batch = sub.add_parser("batch", help="批量评估多个代币")
     p_batch.add_argument("symbols", nargs="+", help="一个或多个 Symbol")
+    p_batch.add_argument("--quiet", action="store_true", help="静默模式，只输出汇总")
+    p_batch.add_argument("--llm-file", help="LLM 结果文件路径（用于批量合并）")
 
     # test
     sub.add_parser("test", help="运行测试")

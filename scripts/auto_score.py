@@ -5,6 +5,7 @@ crypto-eval Stage 2: 自动评分（不调 LLM）
 输出: JSON，其中能自动评的维度已打好分，需要 LLM 的标 "needs_llm": true
 """
 
+import functools
 import json
 import os
 import sys
@@ -16,6 +17,7 @@ EVAL_DIR = os.path.join(WORKSPACE, "memory", "evaluations")
 DIM_PATH = os.path.join(SKILL_DIR, "references", "eval-dimensions.json")
 
 
+@functools.lru_cache(maxsize=1)
 def load_dimensions():
     with open(DIM_PATH) as f:
         return json.load(f)

@@ -66,10 +66,11 @@ def merge(symbol, auto_path=None, llm_path=None, output_path=None):
             break
 
     # LLM 补充字段
-    llm_summary = llm_raw.get("summary", "") if llm_path and os.path.exists(llm_path) else ""
-    llm_risk = llm_raw.get("risk", "") if llm_path and os.path.exists(llm_path) else ""
-    llm_opp = llm_raw.get("opportunity", "") if llm_path and os.path.exists(llm_path) else ""
-    llm_sources = llm_raw.get("sources", []) if llm_path and os.path.exists(llm_path) else []
+    has_llm = llm_path and os.path.exists(llm_path)
+    llm_summary = llm_raw.get("summary", "") if has_llm else ""
+    llm_risk = llm_raw.get("risk", "") if has_llm else ""
+    llm_opp = llm_raw.get("opportunity", "") if has_llm else ""
+    llm_sources = llm_raw.get("sources", []) if has_llm else []
 
     result = {
         "symbol": symbol.upper(),
